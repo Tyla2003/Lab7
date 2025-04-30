@@ -1,0 +1,91 @@
+﻿@page "/SecondTest"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using Lab5FR.Services
+@using Lab5FR.Models
+@inject Lab5FR.Services.LibraryService Library
+
+<h3>Testing LibraryService Backend</h3>
+
+<button class="btn btn-dark" @onclick="TestWrapperForAddDummyBook">Add Dummy Book</button>
+<button @onclick="AddDummyUser">Add Dummy User</button>
+<button @onclick="BorrowFirstBook">Borrow Book (User 1, Book 1)</button>
+<button @onclick="ReturnFirstBook">Return Book (User 1, Book 1)</button>
+
+<button @onclick="TestClick">Test Click</button>
+
+
+<h4>Available Books</h4>
+@foreach (var book in Library.GetBooks())
+{
+    <p>@book.Id - @book.Title by @book.Author</p>
+}
+
+<h4>Borrowed by User 1</h4>
+@foreach (var book in Library.GetBorrowedBooksByUser(1))
+{
+    <p>@book.Id - @book.Title by @book.Author</p>
+}
+
+<h4>Users</h4>
+@foreach (var user in Library.GetUsers())
+{
+    <p>@user.Id - @user.Name</p>
+}
+
+<p><strong>Status:</strong> @statusMessage</p>
+
+@code {
+
+    private string statusMessage = "Not clicked yet.";
+
+    private void TestClick()
+    {
+        statusMessage = $"Clicked at {DateTime.Now.ToLongTimeString()}";
+    }
+
+
+    private void AddDummyBook()
+    {
+        var book = new Book
+            {
+                Title = "Test Book",
+                Author = "Tester Guy",
+                ISBN = "1234567890"
+            };
+        Library.AddBook(book);
+        statusMessage = "Dummy Book added.";
+        StateHasChanged();
+    }
+
+    private void TestWrapperForAddDummyBook()
+    {
+        // Call the existing AddDummyBook method.
+        AddDummyBook();
+        statusMessage = "Wrapper method called AddDummyBook.";
+        StateHasChanged();
+    }
+
+    private void AddDummyUser()
+    {
+        var user = new User
+            {
+                Name = "Test User",
+                Email = "Testuser@example.com"
+            };
+        Library.AddUser(user);
+        statusMessage = "Dummy User added.";
+        StateHasChanged();
+    }
+
+    private void BorrowFirstBook()
+    {
+        Library.BorrowBook(1, 1);
+        StateHasChanged();
+    }
+
+    private void ReturnFirstBook()
+    {
+        Library.ReturnBook(1, 1);
+        StateHasChanged();
+    }
+}

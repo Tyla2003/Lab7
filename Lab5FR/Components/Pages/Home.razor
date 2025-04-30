@@ -1,0 +1,191 @@
+﻿@page "/"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using Lab5FR.Services
+@using Lab5FR.Models
+@inject Lab5FR.Services.LibraryService Library
+
+<h3>Welcome to Our Library</h3>
+<p>Please select an option:</p>
+<div>
+    <button class="btn btn-primary me-2" @onclick="ShowAllBooks">View All Books</button>
+    <button class="btn btn-secondary" @onclick="ShowSearch">Search by Title</button>
+</div>
+
+<!-- Display All Books -->
+@if (currentView == ViewMode.AllBooks)
+{
+    <h4 class="mt-4">All Books</h4>
+    @if (Library.GetAllBooks().Any())
+    {
+        <ul class="list-group">
+            @foreach (var book in Library.GetAllBooks())
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        <strong>@book.Title</strong> by @book.Author (ISBN: @book.ISBN)
+                        @if (Library.IsBookAvailable(book.Id))
+                        {
+                            <span class="badge bg-success ms-2">Available</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger ms-2">Checked Out</span>
+                        }
+                    </span>
+                    <button class="btn @(Library.IsBookAvailable(book.Id) ? "btn-success" : "btn-danger")"
+                            @onclick="() => BeginCheckout(book.Id)"
+                            disabled="@(!Library.IsBookAvailable(book.Id))">
+                        Check Out
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No books available.</p>
+    }
+}
+
+<!-- Search by Title -->
+@if (currentView == ViewMode.Search)
+{
+    <h4 class="mt-4">Search Books by Title</h4>
+    <div class="mb-2">
+        <input type="text" @bind="searchQuery" placeholder="Enter book title..." class="form-control" />
+    </div>
+    <button class="btn btn-primary" @onclick="SearchBook">Search</button>
+
+    @if (searchedBook != null)
+    {
+        <div class="mt-3">
+            <h5>Search Result:</h5>
+            <p>
+                <strong>@searchedBook.Title</strong> by @searchedBook.Author (ISBN: @searchedBook.ISBN)
+                @if (Library.IsBookAvailable(searchedBook.Id))
+                {
+                    <span class="badge bg-success ms-2">Available</span>
+                    <button class="btn btn-success ms-2" @onclick="() => BeginCheckout(searchedBook.Id)">Check Out</button>
+                }
+                else
+                {
+                    <span class="badge bg-danger ms-2">Checked Out</span>
+                }
+            </p>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(searchQuery))
+    {
+        <p class="mt-3">No book found matching "@searchQuery".</p>
+    }
+}
+
+<!-- Checkout Form -->
+@if (showCheckoutModal)
+{
+    <!-- Modal Overlay -->
+    <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Check Out Book</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Would you like to check out
+                        <strong>@selectedBook?.Title</strong> by <em>@selectedBook?.Author</em>?
+                    </p>
+                    <div class="mb-2">
+                        <label>Name:</label>
+                        <input type="text" @bind="checkoutName" class="form-control" placeholder="Enter your name" />
+                    </div>
+                    <div class="mb-2">
+                        <label>Email:</label>
+                        <input type="email" @bind="checkoutEmail" class="form-control" placeholder="Enter your email" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(modalError))
+                    {
+                        <p class="text-danger">@modalError</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" @onclick="SubmitCheckout">Confirm Check Out</button>
+                    <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+<p><strong>Status:</strong> @statusMessage</p>
+
+
+@code {
+    enum ViewMode { None, AllBooks, Search }
+    private ViewMode currentView = ViewMode.None;
+    private string searchQuery = "";
+    private Book? searchedBook = null;
+
+    private bool showCheckoutModal = false;
+    private int selectedBookId;
+    private Book? selectedBook = null;
+    private string checkoutName = "";
+    private string checkoutEmail = "";
+    private string statusMessage = "";
+    private string modalError = "";
+
+    private void ShowAllBooks()
+    {
+        currentView = ViewMode.AllBooks;
+        showCheckoutModal = false;
+        searchedBook = null;
+    }
+
+    private void ShowSearch()
+    {
+        currentView = ViewMode.Search;
+        showCheckoutModal = false;
+        searchedBook = null;
+    }
+
+    private void SearchBook()
+    {
+        searchedBook = Library.GetAllBooks().FirstOrDefault(b =>
+            b.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void BeginCheckout(int bookId)
+    {
+        selectedBookId = bookId;
+        selectedBook = Library.GetAllBooks().FirstOrDefault(b => b.Id == bookId);
+        checkoutName = "";
+        checkoutEmail = "";
+        modalError = "";
+        showCheckoutModal = true;
+        statusMessage = "";
+    }
+
+    private void CloseModal()
+    {
+        showCheckoutModal = false;
+    }
+
+    private void SubmitCheckout()
+    {
+        var user = Library.GetUsers().FirstOrDefault(u =>
+            u.Name.Equals(checkoutName, StringComparison.OrdinalIgnoreCase) &&
+            u.Email.Equals(checkoutEmail, StringComparison.OrdinalIgnoreCase));
+
+        if (user == null)
+        {
+            modalError = "User not found. Please speak to library staff about creating an account.";
+            return;
+        }
+
+        bool success = Library.BorrowBook(user.Id, selectedBookId);
+        statusMessage = success
+            ? "Book successfully checked out!"
+            : "Failed to check out book. It may have already been checked out.";
+        showCheckoutModal = false;
+    }
+}
